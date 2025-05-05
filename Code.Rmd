@@ -1,0 +1,1394 @@
+---
+title: "Group_6"
+author: "Sushmitha Meduri"
+date: "2024-12-14"
+output: html_document
+---
+
+
+```{r}
+ # Load essential libraries for data processing, visualization, and spatial analysis
+
+library(ggplot2)            # For creating visualizations
+library(dplyr)              # For creating visualizations
+library(readr)              # For reading data files
+library(gridExtra)          # For grid-based plots
+library(tidyverse)          # Collection of data manipulation tools
+library(RColorBrewer)       # For better color palettes
+library(rnaturalearth)      # For map data
+library(rnaturalearthdata)  # Additional map data
+```
+
+
+# Load and Preprocess the Data
+
+```{r}
+# Load the data set in CSV format
+data <- read.csv("Impact_of_Remote_Work_on_Mental_Health.csv")
+
+# Convert categorical columns into numeric values for analysis
+data <- data %>%
+  mutate(
+    # Map 'Stress_Level' categories to numeric values
+    Stress_Level = case_when(
+      Stress_Level == "Low" ~ 1,
+      Stress_Level == "Medium" ~ 2,
+      Stress_Level == "High" ~ 3,
+      TRUE ~ NA_real_
+    ),
+    # Map 'Mental_Health_Condition' categories to numeric values
+    Mental_Health_Condition = case_when(
+      Mental_Health_Condition == "None" ~ 0,
+      Mental_Health_Condition == "Depression" ~ 1,
+      Mental_Health_Condition == "Anxiety" ~ 2,
+      Mental_Health_Condition == "Burnout" ~ 3,
+      TRUE ~ NA_real_
+    ),
+    # Convert binary 'Access_to_Mental_Health_Resources' into 0 (No) and 1 (Yes)
+    Access_to_Mental_Health_Resources = ifelse(Access_to_Mental_Health_Resources == "Yes", 1, 0),
+    # Map 'Productivity_Change' categories to numeric values
+    Productivity_Change = case_when(
+      Productivity_Change == "Increase" ~ 1,
+      Productivity_Change == "No Change" ~ 0,
+      Productivity_Change == "Decrease" ~ -1,
+      TRUE ~ NA_real_
+    ),
+    # Map 'Satisfaction_with_Remote_Work' categories
+    Satisfaction_with_Remote_Work = case_when(
+      Satisfaction_with_Remote_Work == "Unsatisfied" ~ 1,
+      Satisfaction_with_Remote_Work == "Neutral" ~ 2,
+      Satisfaction_with_Remote_Work == "Satisfied" ~ 3,
+      TRUE ~ NA_real_
+    ),
+    # Map 'Physical_Activity' categories
+    Physical_Activity = case_when(
+      Physical_Activity == "None" ~ 1,
+      Physical_Activity == "Weekly" ~ 2,
+      Physical_Activity == "Daily" ~ 3,
+      TRUE ~ NA_real_
+    ),
+    # Map 'Sleep_Quality' categories
+    Sleep_Quality = case_when(
+      Sleep_Quality == "Poor" ~ 1,
+      Sleep_Quality == "Average" ~ 2,
+      Sleep_Quality == "Good" ~ 3,
+      TRUE ~ NA_real_
+    )
+  )
+
+# Add calculated columns for deeper insights
+data <- data %>%
+  mutate(
+    # 1. Average Meeting Duration per Week
+    Avg_Meeting_Duration_per_Week = ifelse(Number_of_Virtual_Meetings != 0, 
+                                           Hours_Worked_Per_Week / Number_of_Virtual_Meetings, NA),
+    
+    # 2. Experience-to-Age Ratio
+    Experience_to_Age_Ratio = ifelse(exists("Age"), Years_of_Experience / Age, NA),
+    
+    
+    # 3. Work-Life Balance Score (normalized score based on Stress and Satisfaction)
+    Work_Life_Balance_Score = (Work_Life_Balance_Rating - Stress_Level + 
+                               Satisfaction_with_Remote_Work) / 3,
+    
+    
+    # 4. Physical and Mental Health Index (aggregating physical and mental health attributes)
+    Physical_Mental_Health_Index = (Physical_Activity + Sleep_Quality + 
+                                    Access_to_Mental_Health_Resources) / 3,
+    
+    
+    # 5. Productivity Score (combining satisfaction and productivity changes)
+    Productivity_Score = (Satisfaction_with_Remote_Work + Productivity_Change) / 2,
+    
+    # 6. Work-Life Balance to Stress Ratio
+    Work_Life_Balance_to_Stress_Ratio = Work_Life_Balance_Rating / Stress_Level,
+    
+    # 7. Overall Satisfaction Index (average of satisfaction and work-life balance)
+    Overall_Satisfaction_Index = (Satisfaction_with_Remote_Work + Work_Life_Balance_Rating) / 2,
+    
+    
+    # 8. Meeting Fatigue Score
+    Meeting_Fatigue_Score = Number_of_Virtual_Meetings * Avg_Meeting_Duration_per_Week,
+    
+    # 9. Overtime Indicator - Flag employees who work more than 40 hours a week as working overtime
+    Overtime_Indicator = ifelse(Hours_Worked_Per_Week > 40, 1, 0)
+  )
+
+
+```
+
+```{r}
+colnames(data)
+```
+
+# Display Data Structure and Sample Data
+
+```{r}
+# View column names to confirm data structure
+colnames(data)
+
+# Display the first few rows of the dataset
+head(data)
+
+```
+
+# Plots
+
+```{r}
+# Load necessary libraries
+library(plotly)
+
+# Update labels for the 'Mental_Health_Condition' column to be more descriptive
+data$Mental_Health_Condition <- factor(data$Mental_Health_Condition,
+                                        levels = c("0", "1", "2", "3"),
+                                        labels = c("None", "Depression", "Anxiety", "Burnout"))
+
+# Create the base ggplot object
+p <- ggplot(data, aes(x = as.factor(Mental_Health_Condition), fill = as.factor(Mental_Health_Condition))) +
+
+  # Use geom_bar to create a bar chart
+  # position_dodge2 is used to avoid overlapping of bars  
+  geom_bar(position = position_dodge2(padding = 0.2)) +
+
+  # Set custom colors for bars based on mental health condition
+  scale_fill_manual(values = c("None" = "#FF7F7F", "Depression" = "#6495ED", 
+                                "Anxiety" = "#98FB98", "Burnout" = "#DDA0DD")) +
+
+  # Add title and axis labels
+  labs(title = "Distribution of Mental Health Conditions Across Industries",
+       x = "Mental Health Condition", 
+       y = "Count",
+       fill = "Mental Health Condition") +
+
+  # Use a minimal theme
+  theme_minimal() +
+
+  # Customize theme elements (title, legend position, remove x-axis text)
+  theme(plot.title = element_text(face = "bold"),
+        legend.position = "top",
+        axis.text.x = element_blank()) +
+
+  # Create separate subplots for each industry with independent y-axes
+  facet_wrap(~ Industry, scales = "free_y") 
+
+# Convert the static ggplot object to an interactive plotly object
+interactive_plot <- ggplotly(p)
+
+# Display the interactive plot
+interactive_plot
+```
+
+
+
+```{r}
+# Relationship between Physical Activity, Sleep Quality, and Mental Health Resources
+
+# Create a ggplot object
+ggplot(data, aes(x = factor(Physical_Activity), y = factor(Sleep_Quality))) +
+
+  # Use geom_count to create a bubble plot where size represents frequency
+  geom_count(aes(color = factor(Access_to_Mental_Health_Resources)), 
+            position = "jitter") +  # Add jitter to avoid overplotting
+
+  # Set custom colors for points based on access to mental health resources
+  scale_color_manual(values = c("0" = "#FF6B6B", "1" = "#4ECDC4"), 
+                    labels = c("No Access", "Has Access")) +
+
+  # Control the size of the points
+  scale_size_continuous(range = c(3, 10)) + 
+
+  # Set labels for the x-axis (Physical Activity)
+  scale_x_discrete(labels = c("1" = "None", "2" = "Weekly", "3" = "Daily")) +
+
+  # Set labels for the y-axis (Sleep Quality)
+  scale_y_discrete(labels = c("1" = "Poor", "2" = "Average", "3" = "Good")) +
+
+  # Add title, subtitle, and axis labels
+  labs(title = "Physical Activity vs Sleep Quality",
+       subtitle = "Size indicates frequency, Color indicates access to mental health resources",
+       x = "Physical Activity Level",
+       y = "Sleep Quality",
+       color = "Mental Health Resources",
+       size = "Count") +
+
+  # Use a minimal theme
+  theme_minimal() +
+
+  # Customize theme elements (title, subtitle, legend position)
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 12),
+    legend.position = "right",
+    axis.title = element_text(size = 14, face = "bold"),
+    axis.text = element_text(size = 12)
+  )
+```
+
+```{r}
+# Violin plot showing distribution of Hours Worked by Mental Health Condition
+
+# Create a ggplot object
+ggplot(data, aes(x = factor(Mental_Health_Condition), y = Hours_Worked_Per_Week)) +
+
+  # Use geom_violin to create a violin plot
+  geom_violin(fill = "lightblue", alpha = 0.7) +  # Set fill color and transparency
+
+  # Set labels for the x-axis (Mental Health Condition)
+  scale_x_discrete(labels = c("0" = "None", "1" = "Depression", 
+                              "2" = "Anxiety", "3" = "Burnout")) +
+
+  # Add title and axis labels
+  labs(title = "Distribution of Work Hours by Mental Health Condition",
+       x = "Mental Health Condition",
+       y = "Hours Worked Per Week") +
+
+  # Use a minimal theme
+  theme_minimal() +
+
+  # Customize theme elements (title)
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    legend.position = "right",
+    axis.title = element_text(size = 14, face = "bold"),
+    axis.text = element_text(size = 12)
+    )
+```
+
+
+```{r}
+# Years of Experience & Mental Health Condition - Violin Plot
+
+# Violin plot with split density
+ggplot(data, aes(x = factor(Mental_Health_Condition), 
+                 y = Years_of_Experience, 
+                 fill = factor(Mental_Health_Condition))) +
+  
+  geom_violin(trim = FALSE, alpha = 0.7) +
+  
+  geom_jitter(position = position_jitter(width = 0.2),
+              color = "black",
+              alpha = 0.4) +
+  scale_x_discrete(labels = c("0" = "None", 
+                              "1" = "Depression", 
+                              "2" = "Anxiety", 
+                              "3" = "Burnout")) +
+  
+  scale_fill_manual(values = c("0" = "#E0E0E0",
+                               "1" = "#FF9999",
+                               "2" = "#99CCFF",
+                               "3" = "#FFD580")) +
+  
+  labs(title = "Years of Experience by Mental Health Condition", 
+       x = "Mental Health Condition", 
+       y = "Years of Experience") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+
+```{r}
+# Bar plot of Work-Life Balance Rating distribution
+
+# Create a ggplot object
+ggplot(data, aes(x = factor(Work_Life_Balance_Rating, # Convert Work_Life_Balance_Rating to a factor with ordered levels
+                            levels = c("1", "2", "3", "4", "5"),
+                            labels = c("Very Poor", "Poor", "Average", "Good", "Excellent")),
+                 fill = factor(Work_Location))) +
+  
+  # Use geom_bar to create a bar chart
+  # position_dodge2 is used to avoid overlapping of bars
+  geom_bar(position = "dodge2", alpha = 0.85) +
+  
+  # Set custom colors for bars based on work location
+  scale_fill_manual(values = c("Hybrid" = "skyblue2", "Onsite" = "darkseagreen4", "Remote" = "plum3")) +
+  
+  # Set the y-axis limits (Number of Employees)
+  scale_y_continuous(limits = c(0, 400)) +
+  
+  # Add title and axis labels
+  labs(title = "Work-Life Balance Ratings by Work Location",
+       x = "Work-Life Balance Rating",
+       y = "Number of Employees",
+       fill = "Work Location") +
+  
+  # Use a minimal theme
+  theme_minimal() +
+  
+  # Customize theme elements (title, legend position)
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    legend.position = "right",
+    axis.title = element_text(size = 14, face = "bold"),
+    axis.text = element_text(size = 12)
+  )
+```
+
+```{r}
+library(viridis)
+
+# Create composite scores and new variables
+data <- data %>%
+  mutate(
+    # Create a Wellbeing Score (0-10)
+    Wellbeing_Score = (Work_Life_Balance_Rating + (4 - Stress_Level) + 
+                       Sleep_Quality + (4 - Social_Isolation_Rating)) / 4,
+    
+    # Create an Engagement Score (0-10)
+    Engagement_Score = (Satisfaction_with_Remote_Work + 
+                       Company_Support_for_Remote_Work + 
+                       Physical_Activity) / 3,
+    
+    # Create Experience Categories
+    Experience_Level = case_when(
+      Years_of_Experience < 5 ~ "Junior",
+      Years_of_Experience < 10 ~ "Mid-Level",
+      Years_of_Experience < 15 ~ "Senior",
+      TRUE ~ "Expert"
+    ),
+    
+    # Create Workload Category
+    Workload_Category = case_when(
+      Hours_Worked_Per_Week < 35 ~ "Light",
+      Hours_Worked_Per_Week <= 45 ~ "Normal",
+      Hours_Worked_Per_Week <= 55 ~ "Heavy",
+      TRUE ~ "Excessive"
+    ),
+    
+    # Create Meeting Intensity Score
+    Meeting_Intensity = Number_of_Virtual_Meetings / Hours_Worked_Per_Week,
+    
+    # Create Work-Life Balance Category
+    Balance_Category = case_when(
+      Work_Life_Balance_Rating <= 2 ~ "Poor",
+      Work_Life_Balance_Rating <= 3 ~ "Average",
+      TRUE ~ "Good"
+    )
+  )
+
+# Plot 2: Complex Heatmap with Multiple Variables
+productivity_matrix <- data %>%
+  group_by(Experience_Level, Workload_Category) %>%
+  summarise(
+    Avg_Productivity = mean(Productivity_Change, na.rm = TRUE),
+    Stress_Level = mean(Stress_Level, na.rm = TRUE),
+    Count = n(),
+    .groups = 'drop'
+  )
+
+ggplot(productivity_matrix, 
+       aes(x = Experience_Level, y = Workload_Category)) +
+  geom_tile(aes(fill = Avg_Productivity)) +
+  geom_text(aes(label = round(Stress_Level, 1)), 
+            color = "white", size = 5) +
+  geom_text(aes(label = paste("n=", Count)), 
+            color = "white", size = 5, vjust = 2) +
+  scale_fill_viridis() +
+  labs(title = "Productivity Matrix",
+       subtitle = "Numbers show Average Stress Level and Sample Size",
+       x = "Experience Level",
+       y = "Workload Category",
+       fill = "Avg Productivity\nChange") +
+  theme_minimal()+
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    legend.position = "right",
+    axis.title = element_text(size = 14, face = "bold"),
+    axis.text = element_text(size = 12)
+  )
+```
+
+```{r}
+# Gender - bar plot
+
+# Gender summary data
+gender_summary <- data %>%
+  count(Gender) %>%
+  mutate(percentage = n/sum(n) * 100,
+    
+    # Create labels with both count and percentage
+    label = sprintf("%d\n(%.2f%%)", n, percentage))
+
+# Create a bar plot
+ggplot(gender_summary, 
+       aes(x = reorder(Gender, n), y = n)) +
+  
+  geom_bar(stat = "identity",aes(fill = Gender),width = 0.6) +
+  
+  geom_text(aes(label = label),hjust = -0.2, size = 4) +
+  
+  scale_fill_manual(values = c("Male" = "#4682B4",
+                               "Female" = "#CD6889",
+                               "Non-binary" = "#90EE90",
+                               "Prefer not to say" = "#D3D3D3")) +
+  
+  
+  coord_flip() +
+  
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0.2))) +
+  
+  theme_minimal() +
+  theme(legend.position = "none",
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14, face = "bold"),
+        plot.title = element_text(size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 11,color = "gray30",margin = margin(b = 10))) +
+ 
+  labs(
+    title = "Gender Distribution",
+    subtitle = paste("Total Responses:", sum(gender_summary$n)),
+    x = NULL,
+    y = "Number of Responses")
+```
+
+```{r}
+# Mental Health Condition - Pie Chart
+
+# Calculate the counts and percentages
+mental_health_summary <- data %>%
+  count(Mental_Health_Condition) %>%
+  mutate(
+    percentage = n / sum(n) * 100,
+    percentage_label = sprintf("%.1f%%", percentage),
+    
+    # Create labels combining condition name and percentage
+    label_position = cumsum(percentage) - (percentage / 2),
+      )
+
+# Create pie chart
+ggplot(mental_health_summary, 
+       aes(x = "", y = percentage, fill = Mental_Health_Condition)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  
+  # Add percentage labels
+  geom_text(aes(y = label_position, 
+                label = paste0(Mental_Health_Condition, "\n",
+                               percentage_label, "\n",
+                               "(Count=", n, ")")),
+            color = "black", size = 5) +
+  
+  scale_fill_brewer(palette = "Set2") +
+  
+  theme_minimal() +
+  theme(
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    panel.grid = element_blank(),
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+    legend.title = element_text(size = 14, face = "bold"),
+    legend.text = element_text(size = 12)) +
+  
+  labs(title = "Mental Health Condition Distribution",
+       fill = "Condition")
+```
+
+```{r}
+# Create a bar chart to show the distribution of productivity change
+ggplot(data, aes(x = factor(Productivity_Change))) +
+  
+  # Create bars with a skyblue color, and black borders for each category of productivity change
+  geom_bar(fill = "skyblue2", color ="black") +
+  
+  # Add title and axis labels
+  labs(title = "Productivity Change Distribution",  # Title of the plot
+       x = "Productivity Change",  # Label for the x-axis
+       y = "Count") +  # Label for the y-axis
+  
+  # Customize the x-axis labels to show more meaningful text for each productivity change category
+  scale_x_discrete(labels = c("-1" = "Decrease",  # Label for 'Decrease' category
+                             "0" = "No Change",  # Label for 'No Change' category
+                             "1" = "Increase")) +  # Label for 'Increase' category
+  
+  # Customize the appearance of the plot
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),  # Title styling with bold font and centered
+    plot.subtitle = element_text(size = 12, hjust = 0.5),  # Subtitle styling (no subtitle in this case)
+    axis.title = element_text(size = 14, face = "bold"),  # Axis titles in bold font
+    axis.text = element_text(size = 12)  # Axis labels with text size 12
+  )
+
+```
+
+```{r}
+# Create a stacked bar chart to show the distribution of stress levels across work locations
+ggplot(data, aes(x = Work_Location, fill = factor(Stress_Level))) +
+  
+  # Create the stacked bar chart, using 'fill' to stack the bars proportionally based on stress levels
+  geom_bar(position = "fill") +  # 'position = "fill"' ensures the bars show proportions, not raw counts
+  
+  # Add titles and axis labels
+  labs(title = "Stress Level Distribution Across Work Locations",  # Title of the plot
+       x = "Work Location",  # Label for x-axis
+       y = "Proportion") +  # Label for y-axis
+  
+  # Manually define colors for each stress level and set the legend labels
+  scale_fill_manual(
+    name = "Stress Level",  # Title for the legend
+    values = RColorBrewer::brewer.pal(3, "Set2"),  # Choose a color palette from RColorBrewer for stress levels
+    labels = c("Low", "Medium", "High")  # Set labels for the legend
+  ) +
+  
+  # Customize the appearance of the plot
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),  # Title styling
+    plot.subtitle = element_text(size = 12, hjust = 0.5),  # Subtitle styling (although no subtitle here)
+    legend.position = "right",  # Position of the legend
+    axis.title = element_text(size = 14, face = "bold"),  # Axis title styling
+    axis.text = element_text(size = 12),  # Axis text styling
+    legend.title = element_text(size = 14, face = "bold"),  # Legend title styling
+    legend.text = element_text(size = 12)  # Legend text styling
+  )
+
+```
+
+
+
+```{r}
+# Job Role & Satisfaction with Remote Work 
+satisfaction_heatmap <- data %>%
+  mutate(Satisfaction_with_Remote_Work = factor(Satisfaction_with_Remote_Work,
+                                                levels = c(1, 2, 3),
+                                                labels = c("Unsatisfied", "Neutral", "Satisfied"))) %>%
+  group_by(Job_Role) %>%
+  summarise(
+    count = n(),
+    majority_satisfaction = Satisfaction_with_Remote_Work[which.max(table(Satisfaction_with_Remote_Work))]
+  ) %>%
+  mutate(Job_Role = reorder(Job_Role, count))
+
+# Plot 
+ggplot(satisfaction_heatmap, aes(x = Job_Role, y = 1, fill = majority_satisfaction)) +
+  geom_tile() +
+  
+  geom_text(aes(label = sprintf("%s\nn=%d", majority_satisfaction, count)), 
+            color = "black", size = 4.5, hjust = 0.5, vjust = 0.5) +
+  
+  scale_fill_manual(values = c("Unsatisfied" = "#FFB6C1", 
+                               "Neutral" = "#FFFF90", 
+                               "Satisfied" = "#C1FFC1"),
+                    name = "Satisfaction Level") +
+  
+  labs(title = "Remote Work Satisfaction by Job Role",
+       caption = "n:Number of employees",
+       x = "Job Role", y = NULL) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 10),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "right",
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),
+    axis.title = element_text(size = 14, face = "bold"),  # Axis title styling
+    axis.text = element_text(size = 13),  # Axis text styling
+    
+  ) +
+  coord_flip()
+```
+
+```{r}
+# 4. Stacked Bar Chart: Mental Health Condition by Access to Resources
+
+# Calculate proportions with proper factor conversion
+prop_data <- data %>%
+  mutate(
+    # Convert Mental Health Condition and Access to Resources to factors for proper handling in the plot
+    Mental_Health_Condition = factor(Mental_Health_Condition),
+    Access_to_Mental_Health_Resources = factor(Access_to_Mental_Health_Resources)) %>%
+  
+  # Group data by Mental Health Condition and count occurrences of Access to Resources within each condition
+  group_by(Mental_Health_Condition) %>%
+  count(Access_to_Mental_Health_Resources) %>%
+  # Calculate the proportion (percentage) of each category within each mental health condition group
+  mutate(prop = n/sum(n) * 100)
+
+# Create a proportional stacked bar chart
+ggplot(prop_data, 
+       aes(x = Mental_Health_Condition,  # x-axis represents the mental health conditions
+           y = prop,  # y-axis represents the proportion of individuals
+           fill = Access_to_Mental_Health_Resources)) +  # Fill color is based on access to resources
+
+  # Create the bars using the calculated proportions
+  geom_bar(stat = "identity") +
+  
+  # Add percentage labels to the bars to show the exact value of the proportions
+  geom_text(aes(label = sprintf("%.1f%%", prop)),  # Format the proportion as a percentage with one decimal point
+            position = position_stack(vjust = 0.5),  # Position labels at the center of each stacked segment
+            color = "black",  # Color of the text
+            size = 3.5) +  # Text size for clarity
+  
+  # Customize the colors for the "Yes" and "No" categories using a color palette
+  scale_fill_manual(values = RColorBrewer::brewer.pal(3, "Set2"),  # Use a palette of 3 colors for the fill
+                    labels = c("No", "Yes"),  # Label the legend
+                    name = "Access to Resources")  +  # Title for the fill legend
+  
+  # Add plot title, subtitle, and axis labels
+  labs(title = "Access to Mental Health Resources by Condition",  # Main title of the plot
+       subtitle = "Showing proportional distribution",  # Subtitle for context
+       x = "Mental Health Condition",  # Label for the x-axis
+       y = "Percentage",  # Label for the y-axis
+       fill = "Access to Resources") +  # Label for the legend
+  
+  # Customize the x-axis labels to represent the different mental health conditions
+  scale_x_discrete(
+    labels = c("0" = "None",  # Label '0' as 'None' for no mental health condition
+               "1" = "Depression",  # Label '1' as 'Depression'
+               "2" = "Anxiety",  # Label '2' as 'Anxiety'
+               "3" = "Burnout")) +  # Label '3' as 'Burnout'
+  
+  # Apply a minimal theme for a clean and simple plot appearance
+  theme_minimal() +
+  # Customize plot elements such as text alignment, title font, and subtitle font color
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),  # Title styling
+    legend.position = "right",  # Position of the legend
+    axis.title = element_text(size = 14, face = "bold"),  # Axis title styling
+    axis.text = element_text(size = 12),  # Axis text styling
+    legend.title = element_text(size = 14, face = "bold"),  # Legend title styling
+    legend.text = element_text(size = 12)  # Legend text styling
+  )
+
+```
+
+
+```{r}
+# Company Support for Remote Work & Satisfaction with Remote Work 
+
+# 1. Stacked Bar Chart
+# First, transform the data to aggregate satisfaction levels for each support level
+
+# Group the data by Company Support for Remote Work level
+satisfaction_by_support <- data %>%
+  group_by(Company_Support_for_Remote_Work) %>%  # Grouping by support level for remote work
+  summarise(
+    # Count the number of employees in each satisfaction level
+    Satisfied = sum(Satisfaction_with_Remote_Work == 3),  # Employees satisfied with remote work (score 3)
+    Neutral = sum(Satisfaction_with_Remote_Work == 2),  # Employees neutral about remote work (score 2)
+    Unsatisfied = sum(Satisfaction_with_Remote_Work == 1)  # Employees unsatisfied with remote work (score 1)
+  ) %>%
+  # Reshape the data from wide format to long format for stacked bar chart
+  tidyr::pivot_longer(
+    cols = c(Satisfied, Neutral, Unsatisfied),  # Columns to pivot
+    names_to = "Satisfaction_Level",  # New column for satisfaction levels
+    values_to = "Count"  # New column for the counts of each satisfaction level
+  )
+
+# Create stacked bar chart
+ggplot(satisfaction_by_support, 
+       aes(x = factor(Company_Support_for_Remote_Work),  # X-axis: Company support for remote work (categorical)
+           y = Count,  # Y-axis: Count of employees in each satisfaction level
+           fill = Satisfaction_Level)) +  # Fill color based on satisfaction level
+
+  # Create stacked bars where each bar represents the total count per support level, 
+  # and different satisfaction levels are stacked on top of each other
+  geom_bar(stat = "identity", position = "stack") +  
+  
+  # Customize the color scale for satisfaction levels
+  scale_fill_manual(values = c("Satisfied" = "#4CAF50",  # Green for satisfied employees
+                               "Neutral" = "#FFC107",  # Yellow for neutral employees
+                               "Unsatisfied" = "#EF5350")) +  # Red for unsatisfied employees
+
+  # Add titles and labels for the plot
+  labs(title = "Remote Work Satisfaction by Company Support Level",  # Title of the chart
+       subtitle = "Distribution of satisfaction levels for each support level",  # Subtitle for context
+       x = "Company Support Level",  # Label for the x-axis
+       y = "Number of Employees",  # Label for the y-axis
+       fill = "Satisfaction Level") +  # Label for the fill legend
+
+  # Apply minimal theme for a clean appearance
+  theme_minimal() +  
+  # Customize various plot elements (font sizes, title, subtitle, axis titles, legend position)
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),  # Title styling
+    legend.position = "right",  # Position of the legend
+    axis.title = element_text(size = 14, face = "bold"),  # Axis title styling
+    axis.text = element_text(size = 12),  # Axis text styling
+    legend.title = element_text(size = 14, face = "bold"),  # Legend title styling
+    legend.text = element_text(size = 12)  # Legend text styling
+  )
+  # Customize x-axis labels to represent different levels of company support for remote work
+  scale_x_discrete(labels = c("1" = "Very Low Support",  # Label for score 1
+                             "2" = "Low Support",  # Label for score 2
+                             "3" = "Moderate Support",  # Label for score 3
+                             "4" = "High Support",  # Label for score 4
+                             "5" = "Very High Support"))  # Label for score 5
+
+
+
+# 2. Trend Line Chart
+# Calculate average satisfaction for each support level
+satisfaction_trend <- data %>%
+  group_by(Company_Support_for_Remote_Work) %>%
+  summarise(
+    avg_satisfaction = mean(Satisfaction_with_Remote_Work),
+    sd_satisfaction = sd(Satisfaction_with_Remote_Work),
+    n = n(),
+    se = sd_satisfaction / sqrt(n)
+  )
+
+# Create trend line with confidence interval
+ggplot(satisfaction_trend, 
+       aes(x = factor(Company_Support_for_Remote_Work), 
+           y = avg_satisfaction)) +
+  geom_line(aes(group = 1), 
+            color = "#3B82F6", 
+            size = 1) +
+  geom_point(size = 3, 
+             color = "#3B82F6") +
+  geom_errorbar(aes(ymin = avg_satisfaction - se, 
+                    ymax = avg_satisfaction + se),
+                width = 0.2) +
+  scale_y_continuous(limits = c(1, 3),
+                    breaks = seq(1, 3, 0.5)) +
+  labs(title = "Average Satisfaction Trend by Company Support",
+       subtitle = "With standard error bars",
+       x = "Company Support Level",
+       y = "Average Satisfaction Score") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),  # Title styling
+    legend.position = "right",  # Position of the legend
+    axis.title = element_text(size = 14, face = "bold"),  # Axis title styling
+    axis.text = element_text(size = 12),  # Axis text styling
+    legend.title = element_text(size = 14, face = "bold"),  # Legend title styling
+    legend.text = element_text(size = 12)  # Legend text styling
+  ) +
+  scale_x_discrete(labels = c("1" = "Very Low Support", 
+                             "2" = "Low Support", 
+                             "3" = "Moderate Support", 
+                             "4" = "High Support", 
+                             "5" = "Very High Support")) 
+
+
+# 3. Pie Chart for Overall Distribution
+# Calculate overall satisfaction distribution
+satisfaction_dist <- data %>%
+  group_by(Satisfaction_with_Remote_Work) %>%
+  summarise(count = n()) %>%
+  mutate(
+    percentage = count / sum(count) * 100,
+    satisfaction_label = case_when(
+      Satisfaction_with_Remote_Work == 1 ~ "Unsatisfied",
+      Satisfaction_with_Remote_Work == 2 ~ "Neutral",
+      Satisfaction_with_Remote_Work == 3 ~ "Satisfied"
+    ),
+    label = paste0(satisfaction_label, "\n", round(percentage, 1), "%")
+  )
+
+# Create pie chart
+ggplot(satisfaction_dist, 
+       aes(x = "", 
+           y = count, 
+           fill = satisfaction_label)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = c("Satisfied" = "#4CAF50",
+                              "Neutral" = "#FFC107",
+                              "Unsatisfied" = "#EF5350")) +
+  geom_text(aes(label = label),
+            position = position_stack(vjust = 0.5)) +
+  labs(title = "Overall Remote Work Satisfaction Distribution",
+       fill = "Satisfaction Level") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 16, hjust = 0.5),  # Title styling
+    legend.position = "right",  # Position of the legend
+    legend.title = element_text(size = 14, face = "bold"),  # Legend title styling
+    legend.text = element_text(size = 12),  # Legend text styling
+    panel.grid = element_blank(),
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+  )
+
+
+```
+
+```{r}
+
+# Region Based Average Productivity
+
+# world data
+world <- ne_countries(scale = "medium", returnclass = "sf")
+world_regions <- world %>%
+  mutate(
+    Region = case_when(
+      continent == "North America" ~ "North America",
+      continent == "South America" ~ "South America",
+      continent == "Europe" ~ "Europe",
+      continent == "Asia" ~ "Asia",
+      continent == "Africa" ~ "Africa",
+      continent == "Oceania" ~ "Oceania",
+      TRUE ~ "Other"
+    )
+  )
+
+
+# dominant stress level based on regions
+# Calculate the dominant stress level (Low, Medium, High) for each region
+region_stress <- data %>%
+  group_by(Region, Stress_Level) %>%        # Group data by Region and Stress Level
+  summarize(n = n(), .groups = "drop") %>%  # Count the number of observations
+  group_by(Region) %>%                      # Re-group by Region
+  slice_max(n, with_ties = FALSE) %>%       # Select the row with the maximum value of Stress_Level
+  ungroup() %>%
+  mutate(
+    # Map Stress_Level back to categorical labels for visualization
+    Stress_Category = case_when(
+      Stress_Level == 1 ~ "Low",
+      Stress_Level == 2 ~ "Medium",
+      Stress_Level == 3 ~ "High"
+    )
+  )
+
+# Load world map data and join with stress level data
+world_data <- world_regions %>%   # Retrieve world regions (assuming a dataset "world_regions" exists)
+  left_join(region_stress, by = "Region")  # Merge stress level data with world map data
+
+# Plot the map showing dominant stress levels by region
+ggplot(data = world_data) +
+  geom_sf(aes(fill = as.factor(Stress_Category))) +   # Color regions based on dominant stress levels
+  scale_fill_manual(
+    values = c("Low" = "#4CAF50", "Medium" = "#FFC107", "High" = "#FF5252"), # Custom colors
+    na.value = "grey70",   # Grey for missing data
+    name = "Stress Level"  # Legend title
+  ) +
+  coord_sf(crs = "+proj=robin") +  # Use Robinson projection for a better world map view
+  theme_minimal() +                # Minimalistic theme for clean visualization
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right"
+  ) +
+  labs(
+    title = "Global Stress Levels by Region",   # Plot title
+    subtitle = "Dominant stress level across regions",  # Subtitle
+    caption = "Data based on survey responses"  # Source information
+  )
+
+
+```
+
+
+
+```{r}
+# Work Location - Donut Chart
+
+# Calculate counts and percentages for each Work_Location category
+work_location_summary <- data %>%
+  count(Work_Location) %>%          # Count the number of occurrences
+  mutate(
+    percentage = n / sum(n) * 100,  # Calculate percentage share
+    percentage_label = sprintf("%.1f%%", percentage),  # Format percentage labels
+    label_position = cumsum(percentage) - (percentage / 2)  # Determine label positions for slices
+  )
+
+# Create a donut chart to visualize work location distribution
+ggplot(work_location_summary, 
+       aes(x = 2, y = percentage, fill = Work_Location)) +  # Aesthetics for the chart
+  geom_bar(stat = "identity", width = 1) +  # Create bar segments for the donut
+  coord_polar("y", start = 0) +  # Transform bar chart into a circular donut chart
+  xlim(0.95, 2.5) +  # Adjust x-limits to create the donut hole
+  
+  # Add labels inside the donut slices with category, percentage, and count
+  geom_text(aes(y = label_position, 
+                label = paste0(Work_Location, "\n", percentage_label, "\n",
+                               "(Count=", n, ")")),
+            color = "black", size = 4.5, x = 2) +
+  
+  # Apply a color palette for the slices
+  scale_fill_brewer(palette = "Set3") +
+  
+  # Clean up and format the chart appearance
+  theme_minimal() +
+  theme(
+    axis.title = element_blank(),  # Remove axis titles
+    axis.text = element_blank(),   # Remove axis text
+    panel.grid = element_blank(),  # Remove grid lines
+    plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),  # Style the title
+    legend.title = element_text(size = 12, face = "bold"),  # Style legend title
+    legend.text = element_text(size = 11),   # Style legend text
+    plot.background = element_rect(fill = "white", color = NA)  # Set white background
+  ) +
+  
+  # Add chart title and legend title
+  labs(
+    title = "Work Location Distribution",
+    fill = "Work Location"
+  )
+
+```
+
+```{r}
+# Perform data analysis by grouping data by Work Location and Job Role
+work_pattern_analysis <- data %>%
+  group_by(Work_Location, Job_Role) %>%
+  summarize(
+    # Calculate average productivity change for each group
+    Avg_Productivity = mean(Productivity_Change, na.rm = TRUE),
+    
+    # Calculate average stress level for each group
+    Avg_Stress = mean(Stress_Level, na.rm = TRUE),
+    
+    # Calculate average satisfaction with remote work for each group
+    Avg_Satisfaction = mean(Satisfaction_with_Remote_Work, na.rm = TRUE),
+    
+    # Count the number of employees in each group
+    Employee_Count = n(),
+    
+    # Calculate Efficiency Score based on productivity, stress, and satisfaction
+    Efficiency_Score = Avg_Productivity * (1 - Avg_Stress/3) * Avg_Satisfaction,
+    
+    # Convert Efficiency Score to percentage
+    Efficiency_Percent = Efficiency_Score * 100,
+    
+    # Drop grouping after summarizing
+    .groups = 'drop'
+  )
+
+# Create a bar plot to visualize the Efficiency Score by Job Role and Work Location
+ggplot(work_pattern_analysis, aes(x = reorder(Job_Role, Efficiency_Percent), 
+                                 y = Efficiency_Percent, 
+                                 fill = Work_Location)) +
+  # Create a bar chart with customized position and width
+  geom_bar(stat = "identity", 
+           position = position_dodge(width = 0.9), 
+           width = 0.7) +
+  
+  # Manually define the colors for each work location
+  scale_fill_manual(name = "Work Location",
+                    values = c(
+                      "Hybrid" = "#4472C4",    # Blue for Hybrid
+                      "Onsite" = "#ED7D31",    # Orange for Onsite
+                      "Remote" = "#70AD47"     # Green for Remote
+                    )) +
+  
+  # Add chart labels and axis titles
+  labs(
+    title = "Work Pattern Efficiency Score by Job Role and Work Location",  # Title of the plot
+    x = "Job Role",  # Label for x-axis
+    y = "Efficiency Score (%)"  # Label for y-axis
+  ) +
+  
+  # Apply minimal theme for clean aesthetics
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),  # Style title
+    axis.text.x = element_text(size = 12),  # Style x-axis text
+    axis.text.y = element_text(size = 12),  # Style y-axis text
+    axis.title = element_text(size = 14, face = "bold"),  # Style axis titles
+    legend.text = element_text(size = 12),  # Style legend text
+    legend.title = element_text(size = 14, face = "bold")  # Style legend title
+  ) +
+  
+  # Add labels inside the bars to show Efficiency Percent
+  geom_text(aes(label = sprintf("%.1f%%", Efficiency_Percent),  # Format percentage for label
+                # Adjust label position based on whether the value is positive or negative
+                hjust = ifelse(Efficiency_Percent >= 0, -0.2, 1.2)),  # Horizontal adjustment
+            position = position_dodge(width = 0.9),  # Ensure text is properly positioned inside bars
+            size = 4,  # Label text size
+            color = "black") +  # Text color
+    
+  # Flip the coordinates to make the bars horizontal
+  coord_flip() +
+  
+  # Add padding to the x and y axes to ensure that labels are fully visible
+  scale_x_discrete(expand = expansion(mult = c(0.2, 0.2))) +
+  scale_y_continuous(expand = expansion(mult = c(0.1, 0.2)))
+
+```
+
+
+```{r}
+# Overtime Indicator
+
+# Bar Plot
+overtime_summary <- data %>%
+  count(Overtime_Indicator) %>%
+  mutate(
+    Overtime_Status = ifelse(Overtime_Indicator == 1, "Overtime", "No Overtime"),
+    percentage = n / sum(n) * 100,
+    label = sprintf("%d\n(%.2f%%)", n, percentage)
+  )
+
+ggplot(overtime_summary, aes(x = Overtime_Status, y = n, fill = Overtime_Status)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  geom_text(aes(label = label), size = 4) +
+  scale_fill_manual(values = c("Overtime" = "yellowgreen", "No Overtime" = "skyblue")) +
+  labs(
+    title = "Overtime Indicator Distribution",
+    x = "Overtime Status",
+    y = "Number of Employees"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    axis.title = element_text(size = 14, face = "bold"),
+    axis.text = element_text(size = 10),
+    legend.position = "none"
+  )
+```
+
+
+```{r}
+# Stress Level by Work Location
+
+library(ggplot2)
+library(RColorBrewer)
+
+# Create the stacked bar chart with normalized proportions
+ggplot(data, aes(x = Work_Location, fill = factor(Stress_Level))) +
+  geom_bar(position = "fill", color = "black") +  # Normalize bars (proportionate stacks)
+  labs(title = "Stress Level Distribution Across Work Locations", 
+       x = "Work Location", 
+       y = "Proportion") +
+  scale_fill_manual(
+    name = "Stress Level",
+    values = RColorBrewer::brewer.pal(3, "Set2"),  
+    labels = c("Low", "Medium", "High")) +
+  geom_text(stat = "count", 
+            aes(label = scales::percent(..count../sum(..count..))), 
+            position = position_fill(vjust = 0.5), 
+            size = 4, color = "black") +  # Add labels to show proportions
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    axis.title = element_text(size = 14, face = "bold"),
+    axis.text.x = element_text(size = 10),
+    axis.text.y = element_text(size = 10),
+    legend.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 10),
+    legend.position = "right",
+    ) 
+```
+
+
+
+```{r}
+
+# Impact of Stress on Productivity by Job Role and Work Location
+
+# Group the data by Stress Level, Job Role, and Work Location to calculate the average productivity change
+data %>%
+  group_by(Stress_Level, Job_Role, Work_Location) %>%  # Grouping by stress level, job role, and work location
+  summarise(
+    Avg_Productivity = mean(Productivity_Change, na.rm = TRUE),  # Calculate average productivity while handling NA values
+    .groups = 'drop'  # Remove the groupings after summarization
+  ) %>%
+  mutate(
+    # Categorize productivity based on the average value
+    Productivity_Category = case_when(
+      Avg_Productivity > 0 ~ "Increase",  # Positive average productivity
+      Avg_Productivity == 0 ~ "No Change",  # Zero average productivity
+      Avg_Productivity < 0 ~ "Decrease"  # Negative average productivity
+    ),
+    # Ensure a specific order for the productivity categories
+    Productivity_Category = factor(
+      Productivity_Category,
+      levels = c("Decrease", "No Change", "Increase")  # Order the categories for better visual representation
+    ),
+    # Convert Stress_Level to a factor with readable labels
+    Stress_Level = factor(
+      Stress_Level,
+      levels = c(1, 2, 3),  # Mapping stress levels (1 = Low, 2 = Moderate, 3 = High)
+      labels = c("Low", "Moderate", "High")  # Assign labels for clarity
+    )
+  ) %>%
+  ggplot(aes(x = Stress_Level, y = Job_Role)) +  # Define axes for stress level and job role
+  
+  # Use geom_tile to create a heatmap-like effect with colored tiles for each combination of stress level and job role
+  geom_tile(aes(fill = Productivity_Category), color = "white", size = 0.7, alpha = 0.6) +  # Tile color represents productivity category
+  
+  # Create facets for different work locations to compare across them
+  facet_wrap(~Work_Location, nrow = 1) +  # Facet by work location with one row for layout
+  
+  # Assign custom colors to productivity categories
+  scale_fill_manual(
+    values = c(
+      "Decrease" = "red3",  # Red for decrease in productivity
+      "No Change" = "beige",  # Beige for no change in productivity
+      "Increase" = "green4"  # Green for increase in productivity
+    ),
+    name = "Productivity Change"  # Legend title for fill colors
+  ) +
+  
+  # Add titles and labels
+  labs(
+    title = "Productivity Changes Under Different Stress Levels",  # Plot title
+    x = "Stress Level",  # X-axis label
+    y = "Job Role"  # Y-axis label
+  ) +
+  
+  # Apply minimal theme for a clean and professional look
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),  # Center and bold the title
+    axis.title = element_text(size = 14, face = "bold"),  # Bold axis titles
+    axis.text.x = element_text(size = 8, face = "bold"),  # Smaller, bold text for x-axis labels
+    axis.text.y = element_text(size = 10),  # Larger text for y-axis labels
+    panel.grid = element_blank(),  # Remove gridlines for clarity
+    strip.text = element_text(size = 12, face = "bold"),  # Bold facet labels
+    legend.title = element_text(size = 14, face = "bold"),  # Bold legend title
+    legend.text = element_text(size = 10)  # Set size for legend text
+  )
+
+```
+
+```{r}
+# Region Based Average Productivity
+
+region_productivity <- data %>%
+  group_by(Region) %>%
+  summarise(Average_Productivity = mean(Productivity_Change, na.rm = TRUE))
+
+
+data <- data %>%
+  left_join(region_productivity, by = "Region") %>%
+  mutate(Region_Normalized_Productivity = Productivity_Change / Average_Productivity)
+
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+world_regions <- world %>%
+  mutate(
+    Region = case_when(
+      continent == "North America" ~ "North America",
+      continent == "South America" ~ "South America",
+      continent == "Europe" ~ "Europe",
+      continent == "Asia" ~ "Asia",
+      continent == "Africa" ~ "Africa",
+      continent == "Oceania" ~ "Oceania",
+      TRUE ~ "Other"
+    )
+  )
+
+# Join the normalized productivity data with the world map
+world_data <- world_regions %>%
+  left_join(data %>% 
+              select(Region, Region_Normalized_Productivity) %>% 
+              distinct(), 
+            by = "Region")
+
+ggplot(data = world_data) +
+  geom_sf(aes(fill = Region_Normalized_Productivity)) +
+  scale_fill_gradient2(
+    high = "#4CAF50", mid = "#FFC107", low = "#FF5252",
+    midpoint = 1, na.value = "grey70", name = "Normalized Productivity"
+  ) +
+  coord_sf(crs = "+proj=robin") +  # Robinson projection for better global view
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    legend.position = "right",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  ) +
+  labs(
+    title = "Global Normalized Productivity by Region",
+    subtitle = "Normalized productivity across regions (Productivity / Regional Average)",
+    caption = "Data based on survey responses"
+  )
+
+```
+
+```{r}
+# Calculate proportions for pie charts
+pie_data <- data %>%
+  group_by(Work_Location, Mental_Health_Condition) %>%  # Group by work location and mental health condition
+  summarise(Count = n(), .groups = "drop") %>%  # Count the occurrences of each combination of work location and mental health condition
+  group_by(Work_Location) %>%  # Group by work location again to calculate proportions within each location
+  mutate(
+    Proportion = Count / sum(Count),  # Calculate the proportion of each mental health condition within each work location
+    Percentage = scales::percent(Proportion, accuracy = 1),  # Convert proportions to percentages for display
+    Mental_Health_Condition = factor(  # Convert mental health condition to a factor with readable labels
+      Mental_Health_Condition,
+      labels = c("None", "Depression", "Anxiety", "Burnout")
+    )
+  )
+
+# Create pie charts faceted by Work Location
+ggplot(pie_data, aes(x = "", y = Proportion, fill = Mental_Health_Condition)) +  # Set up pie chart data
+  geom_col(width = 1, color = "white") +  # Use geom_col to create bar-like sections of the pie chart with no borders
+  geom_text(aes(label = Percentage), position = position_stack(vjust = 0.5), size = 3.5) +  # Add percentage labels inside the pie sections
+  coord_polar(theta = "y") +  # Convert the bar chart into a pie chart using polar coordinates
+  facet_wrap(~Work_Location) +  # Create separate pie charts for each work location
+  scale_fill_brewer(palette = "Set3") +  # Apply a color palette for better visualization
+  labs(
+    title = "Proportion of Mental Health Conditions by Work Location",  # Title for the plot
+    fill = "Mental Health Condition"  # Legend label for the fill color
+  ) +
+  theme_void() +  # Use a void theme to remove axes and gridlines, leaving only the pie chart
+  theme(
+    plot.title = element_text(size = 14, face = "bold", hjust = 0.5),  # Center-align and bold the title
+    strip.text = element_text(size = 12, face = "bold"),  # Format facet labels
+    legend.title = element_text(size = 12, face = "bold"),  # Format the legend title
+    legend.text = element_text(size = 10)  # Format the legend text
+  )
+
+```
+
+
+```{r}
+
+library(RColorBrewer)
+
+# dashboard of mental health conditions
+
+# Function to calculate position of labels
+calculate_positions <- function(data, group_var) {
+  data %>%
+    count(!!sym(group_var), Mental_Health_Condition) %>%
+    group_by(!!sym(group_var)) %>%
+    mutate(prop = n/sum(n),
+           pos = cumsum(prop) - prop/2) %>%
+    ungroup()
+}
+
+# Calculate positions for both plots
+work_positions <- calculate_positions(data, "Work_Location")
+stress_positions <- calculate_positions(data, "Stress_Level")
+
+# Mental Health by Work Location
+p1 <- ggplot(data, aes(x = Work_Location, fill = factor(Mental_Health_Condition))) +
+  geom_bar(position = "fill") +
+  geom_text(data = work_positions,
+            aes(y = pos, 
+                label = scales::percent(prop, accuracy = 1),
+                group = factor(Mental_Health_Condition)),
+            color = "black",
+            size = 3) +
+  scale_fill_brewer(palette = " RdYlGn",
+                    labels = c("None", "Depression", "Anxiety", "Burnout"),
+                    name = "Condition") +
+  #scale_y_continuous(labels = scales::percent) +
+  labs(title = "Mental Health Distribution\nby Work Location",
+       x = "Work Location",
+       y = "Proportion") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.6),
+    axis.text.x = element_text(size = 8),
+    axis.text.y = element_text(size = 8),
+    axis.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 9),
+    legend.title = element_text(size = 11, face = "bold"),
+    legend.position = "right"
+  )
+
+# Mental Health by Stress Level
+p2 <- ggplot(data, aes(x = factor(Stress_Level), fill = factor(Mental_Health_Condition))) +
+  geom_bar(position = "fill") +
+  geom_text(data = stress_positions,
+            aes(y = pos, 
+                label = scales::percent(prop, accuracy = 1),
+                group = factor(Mental_Health_Condition)),
+            color = "black",
+            size = 3) +
+  scale_fill_brewer(palette = " RdYlGn",
+                    labels = c("None", "Depression", "Anxiety", "Burnout"),
+                    name = "Condition") +
+  scale_x_discrete(labels = c("Low", "Medium", "High")) +
+  #scale_y_continuous(labels = scales::percent) +
+  labs(title = "Mental Health Distribution\nby Stress Level",
+       x = "Stress Level",
+       y = "Proportion") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 12, face = "bold", hjust = 0.6),
+    axis.text.x = element_text(size = 8),
+    axis.text.y = element_text(size = 8),
+    axis.title = element_text(size = 12, face = "bold"),
+    legend.text = element_text(size = 9),
+    legend.title = element_text(size = 11, face = "bold"),
+    legend.position = "right")
+
+# Arrange the plots side by side
+grid.arrange(p1, p2, ncol = 2)
+```
+
+
+```{r}
+
+# Advanced Job Role Analysis
+
+job_analysis <- data %>%
+  group_by(Job_Role) %>%
+  summarise(
+    avg_stress = mean(Stress_Level),
+    avg_satisfaction = mean(Satisfaction_with_Remote_Work),
+    avg_productivity = mean(Productivity_Change),
+    total_employees = n()
+  ) %>%
+  arrange(desc(total_employees))
+
+ggplot(job_analysis, aes(x = reorder(Job_Role, total_employees))) +
+  geom_point(aes(y = avg_stress, color = "Stress Level"), size = 3) +
+  geom_point(aes(y = avg_satisfaction, color = "Satisfaction"), size = 3) +
+  geom_point(aes(y = avg_productivity + 2, color = "Productivity"), size = 3) +
+  geom_text(aes(y = -0.2, label = total_employees), vjust = 1.5) +
+  scale_color_manual(values = c("Stress Level" = "red",
+                               "Satisfaction" = "blue",
+                               "Productivity" = "green")) +
+  coord_flip() +
+  labs(title = "Comprehensive Job Role Analysis",
+       subtitle = "Showing average stress, satisfaction, and productivity",
+       x = "Job Role",
+       y = "Score",
+       caption = "Numbers show total employees per role") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 15, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    axis.text.x = element_text(size = 8),
+    axis.text.y = element_text(size = 8),
+    axis.title = element_text(size  = 14, face ="bold"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
