@@ -1,4 +1,4 @@
-# me# Impact of Workplace Stress on Mental Health Conditions of Employees
+# Impact of Workplace Stress on Mental Health Conditions of Employees
 
 This project explores how workplace stress impacts employees' mental health across different industries and work settings (remote, hybrid, onsite). Using a dataset of 5,000 employees, we conducted a detailed statistical analysis and created informative visualizations to uncover patterns and suggest improvements for organizational wellness.
 
