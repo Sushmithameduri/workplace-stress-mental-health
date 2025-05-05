@@ -55,4 +55,3 @@ Clone the repo and open `Code.html` in a browser to view the complete analysis a
 
 ---
 
-*Project by Sushmitha Meduri | December 2024*
