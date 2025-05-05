@@ -1,57 +1,47 @@
-# Impact of Workplace Stress on Mental Health Conditions of Employees
+# Impact of Remote Work on Employee Mental Health
 
-This project explores how workplace stress impacts employees' mental health across different industries and work settings (remote, hybrid, onsite). Using a dataset of 5,000 employees, we conducted a detailed statistical analysis and created informative visualizations to uncover patterns and suggest improvements for organizational wellness.
+This project analyzes how remote work influences the mental health conditions of employees, utilizing the [Remote Work & Mental Health](https://www.kaggle.com/datasets/waqi786/remote-work-and-mental-health) dataset from Kaggle. The analysis explores stress triggers, work-life balance, mental health status, and other demographic and behavioral factors using statistical and visual analysis in R.
 
 ## 📁 Project Structure
 
-- `Code.html` – Final HTML output with all analysis, visualizations, and interpretations.
-- `Report.pdf` – Comprehensive written report with detailed methodology, insights, and recommendations.
-- `Workplace_Stress_Analysis.Rmd` – Source R Markdown file (not committed here but used to generate the above files).
-- `README.md` – Overview of the project, purpose, and structure.
+- `Code.html` – Final rendered HTML file with all analysis, plots, and insights.
+- `Report.pdf` – Comprehensive written report detailing methodology, findings, and recommendations.
+- `README.md` – Overview and guide for the project.
 
-## 🔍 Key Questions Addressed
+## 📊 Dataset
 
-- How does work location affect employee stress and mental health?
-- What role do physical activity and sleep quality play in mitigating stress?
-- Are there industry-specific mental health patterns?
-- What is the relationship between overtime, meeting fatigue, and stress?
+**Source**: [Remote Work & Mental Health Dataset on Kaggle](https://www.kaggle.com/datasets/waqi786/remote-work-and-mental-health)  
+**Records**: Approximately 5,000 employees  
+**Key Features**:
+- Work location (remote, hybrid, onsite)
+- Industry and job role
+- Mental health condition
+- Work-life balance, stress level, hours worked
+- Physical activity, sleep quality, social isolation
+
+## 🔍 Objectives
+
+- Analyze how different working conditions relate to stress and mental health.
+- Examine relationships between behavioral health factors (e.g., sleep, physical activity) and workplace outcomes.
+- Identify patterns across demographics and job roles.
 
 ## 🛠️ Tools & Technologies
 
-- **R**: For data cleaning, analysis, and visualization
-- `tidyverse`, `ggplot2`: For data manipulation and plotting
-- **R Markdown**: For dynamic reporting
-- **Kaggle Dataset**: As the data source
+- **R** with `tidyverse`, `ggplot2`, `dplyr`
+- **R Markdown** for reproducible reporting
+- **Kaggle** for data sourcing
 
-## 📊 Feature Engineering
+## 📌 Key Insights
 
-We developed new metrics such as:
-- Work-Life Balance Score
-- Meeting Fatigue Score
-- Physical & Mental Health Index
-- Overtime Indicator
-- Efficiency Score
+- Remote workers reported slightly higher average stress than onsite workers.
+- Poor sleep and low physical activity are strong predictors of reported mental health issues.
+- Over 60% of employees in high-stress industries had inadequate work-life balance.
+- Social isolation was significantly higher among remote employees.
 
-These features helped quantify the impact of workplace factors on employee wellness.
+## 🚀 Getting Started
 
-## 📈 Key Visuals & Outputs
-
-- Age distribution histograms
-- Mental health condition breakdowns
-- Stress level maps by region
-- Work-life balance bar charts
-- Sleep quality pie charts
-
-## 📌 Findings
-
-- High levels of stress are consistently reported across all work settings.
-- One-third of employees report poor sleep quality.
-- Overtime and meeting fatigue are significantly associated with higher stress levels.
-- Remote work is associated with slightly higher stress levels compared to onsite.
-
-## 📥 How to Use
-
-Clone the repo and open `Code.html` in a browser to view the complete analysis and graphs, or read `Report.pdf` for a polished summary.
+Clone the repository and open `Code.html` in your browser to view the full analysis.  
+You can also read `Report.pdf` for a concise narrative summary.
 
 ---
 
